@@ -1,0 +1,55 @@
+name: Convert sample.ipynb to PDF
+
+on:
+  workflow_dispatch: {}
+  push:
+    paths:
+      - 'sample.ipynb'
+
+permissions:
+  contents: write
+
+jobs:
+  convert:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install system and Python dependencies
+        run: |
+          set -e
+          python -m pip install --upgrade pip
+          pip install nbconvert jupyter
+          sudo apt-get update -y
+          # TeX Live for PDF conversion (may take a while to install)
+          sudo apt-get install -y texlive-xetex texlive-fonts-recommended texlive-latex-recommended texlive-latex-extra pandoc
+
+      - name: Convert notebook to PDF
+        run: |
+          # convert sample.ipynb in repository root to sample.pdf
+          jupyter nbconvert --to pdf sample.ipynb --output sample
+
+      - name: Commit and push PDF
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if [ -f sample.pdf ]; then
+            git add sample.pdf
+            git commit -m "Add compiled PDF for sample.ipynb [skip ci]" || echo "No changes to commit"
+            git push
+          else
+            echo "sample.pdf not found"
+            exit 1
+          fi
